@@ -256,3 +256,138 @@ register_composite("or", _v_or, _e_or)
 register_composite("enum", _v_enum, _e_enum)
 register_composite("maybe", _v_maybe, _e_maybe)
 register_composite("not", _v_not, _e_not)
+
+
+def _check_size_bounds(n: int, props: dict) -> bool:
+    lo = props.get("min")
+    hi = props.get("max")
+    if lo is not None and n < lo:
+        return False
+    if hi is not None and n > hi:
+        return False
+    return True
+
+
+def _reconstruct(name: str, props: dict, children: list) -> Any:
+    if not props and not children:
+        return name
+    if props:
+        return [name, props, *children]
+    return [name, *children]
+
+
+def _collection_error(name: str, props: dict, children: list, path: list, in_: list, value: Any) -> dict:
+    return {"path": path, "in": in_, "schema": _reconstruct(name, props, children), "value": value}
+
+
+def _v_vector(v: Any, schema: tuple) -> bool:
+    name, props, children = schema
+    _require_exact_children(name, children, 1)
+    if not isinstance(v, list):
+        return False
+    if not _check_size_bounds(len(v), props):
+        return False
+    return all(validate(children[0], item) for item in v)
+
+
+def _e_vector(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    _require_exact_children(name, children, 1)
+    if not isinstance(v, list) or not _check_size_bounds(len(v), props):
+        return [_collection_error(name, props, children, path, in_, v)]
+    errs = []
+    for i, item in enumerate(v):
+        errs.extend(_explain_impl(children[0], item, path + [0], in_ + [i]))
+    return errs
+
+
+def _v_sequential(v: Any, schema: tuple) -> bool:
+    name, props, children = schema
+    _require_exact_children(name, children, 1)
+    if not isinstance(v, (list, tuple)):
+        return False
+    if not _check_size_bounds(len(v), props):
+        return False
+    return all(validate(children[0], item) for item in v)
+
+
+def _e_sequential(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    _require_exact_children(name, children, 1)
+    if not isinstance(v, (list, tuple)) or not _check_size_bounds(len(v), props):
+        return [_collection_error(name, props, children, path, in_, v)]
+    errs = []
+    for i, item in enumerate(v):
+        errs.extend(_explain_impl(children[0], item, path + [0], in_ + [i]))
+    return errs
+
+
+def _v_set(v: Any, schema: tuple) -> bool:
+    name, props, children = schema
+    _require_exact_children(name, children, 1)
+    if not isinstance(v, (set, frozenset)):
+        return False
+    if not _check_size_bounds(len(v), props):
+        return False
+    return all(validate(children[0], item) for item in v)
+
+
+def _e_set(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    _require_exact_children(name, children, 1)
+    if not isinstance(v, (set, frozenset)) or not _check_size_bounds(len(v), props):
+        return [_collection_error(name, props, children, path, in_, v)]
+    errs = []
+    for item in v:
+        errs.extend(_explain_impl(children[0], item, path + [0], in_ + [item]))
+    return errs
+
+
+def _v_tuple(v: Any, schema: tuple) -> bool:
+    _, _, children = schema
+    if not isinstance(v, (list, tuple)):
+        return False
+    if len(v) != len(children):
+        return False
+    return all(validate(children[i], v[i]) for i in range(len(children)))
+
+
+def _e_tuple(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    if not isinstance(v, (list, tuple)) or len(v) != len(children):
+        return [_collection_error(name, props, children, path, in_, v)]
+    errs = []
+    for i, child in enumerate(children):
+        errs.extend(_explain_impl(child, v[i], path + [i], in_ + [i]))
+    return errs
+
+
+def _v_map_of(v: Any, schema: tuple) -> bool:
+    name, props, children = schema
+    _require_exact_children(name, children, 2)
+    if not isinstance(v, dict):
+        return False
+    if not _check_size_bounds(len(v), props):
+        return False
+    key_s, val_s = children
+    return all(validate(key_s, k) and validate(val_s, val) for k, val in v.items())
+
+
+def _e_map_of(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    _require_exact_children(name, children, 2)
+    if not isinstance(v, dict) or not _check_size_bounds(len(v), props):
+        return [_collection_error(name, props, children, path, in_, v)]
+    key_s, val_s = children
+    errs = []
+    for k, val in v.items():
+        errs.extend(_explain_impl(key_s, k, path + [0], in_ + [k]))
+        errs.extend(_explain_impl(val_s, val, path + [1], in_ + [k]))
+    return errs
+
+
+register_composite("vector", _v_vector, _e_vector)
+register_composite("sequential", _v_sequential, _e_sequential)
+register_composite("set", _v_set, _e_set)
+register_composite("tuple", _v_tuple, _e_tuple)
+register_composite("map-of", _v_map_of, _e_map_of)
