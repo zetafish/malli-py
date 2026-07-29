@@ -5,49 +5,75 @@ import uuid as _uuid
 from functools import lru_cache
 from typing import Any, Callable
 
-Validator = Callable[[Any, Any], bool]
+SimpleValidator = Callable[[Any, Any], bool]
+CompositeValidator = Callable[[Any, tuple], bool]
+CompositeExplainer = Callable[[Any, tuple, list, list], list]
 
-_REGISTRY: dict[str, Validator] = {}
+_REGISTRY: dict[str, SimpleValidator] = {}
+_COMPOSITES: dict[str, tuple[CompositeValidator, CompositeExplainer]] = {}
 
 
 class UnknownSchemaError(KeyError):
     pass
 
 
-def register(name: str, fn: Validator) -> None:
+def register(name: str, fn: SimpleValidator) -> None:
     _REGISTRY[name] = fn
 
 
-def _parse_schema(schema: Any) -> tuple[str, Any]:
+def register_composite(name: str, v: CompositeValidator, e: CompositeExplainer) -> None:
+    _COMPOSITES[name] = (v, e)
+
+
+def _parse_schema(schema: Any) -> tuple[str, dict, list]:
     if isinstance(schema, str):
-        return schema, {}
+        return schema, {}, []
     if isinstance(schema, (list, tuple)) and len(schema) >= 1 and isinstance(schema[0], str):
-        if len(schema) == 1:
-            return schema[0], {}
-        return schema[0], schema[1]
+        name = schema[0]
+        rest = list(schema[1:])
+        if rest and isinstance(rest[0], dict):
+            return name, rest[0], rest[1:]
+        return name, {}, rest
     raise TypeError(f"invalid schema: {schema!r}")
 
 
+def _scalar_arg(props: dict, children: list) -> Any:
+    if props:
+        return props
+    if children:
+        return children[0]
+    return {}
+
+
 def validate(schema: Any, value: Any) -> bool:
-    name, arg = _parse_schema(schema)
+    name, props, children = _parse_schema(schema)
+    comp = _COMPOSITES.get(name)
+    if comp is not None:
+        return comp[0](value, (name, props, children))
     fn = _REGISTRY.get(name)
     if fn is None:
         raise UnknownSchemaError(name)
-    return fn(value, arg)
+    return fn(value, _scalar_arg(props, children))
+
+
+def _explain_impl(schema: Any, value: Any, path: list, in_: list) -> list:
+    name, props, children = _parse_schema(schema)
+    comp = _COMPOSITES.get(name)
+    if comp is not None:
+        return comp[1](value, (name, props, children), path, in_)
+    fn = _REGISTRY.get(name)
+    if fn is None:
+        raise UnknownSchemaError(name)
+    if fn(value, _scalar_arg(props, children)):
+        return []
+    return [{"path": path, "in": in_, "schema": schema, "value": value}]
 
 
 def explain(schema: Any, value: Any) -> dict | None:
-    name, arg = _parse_schema(schema)
-    fn = _REGISTRY.get(name)
-    if fn is None:
-        raise UnknownSchemaError(name)
-    if fn(value, arg):
+    errors = _explain_impl(schema, value, [], [])
+    if not errors:
         return None
-    return {
-        "value": value,
-        "schema": schema,
-        "errors": [{"path": [], "in": [], "schema": schema, "value": value}],
-    }
+    return {"value": value, "schema": schema, "errors": errors}
 
 
 def _check_bounds(v: float | int, props: dict) -> bool:
@@ -136,3 +162,97 @@ register("uuid", _v_uuid)
 register("keyword", _v_string)
 register("symbol", _v_string)
 register("re", _v_re)
+
+
+def _require_min_children(name: str, children: list, n: int) -> None:
+    if len(children) < n:
+        raise TypeError(f"{name!r} expects at least {n} child schema(s), got {len(children)}")
+
+
+def _require_exact_children(name: str, children: list, n: int) -> None:
+    if len(children) != n:
+        raise TypeError(f"{name!r} expects exactly {n} child schema(s), got {len(children)}")
+
+
+def _v_and(v: Any, schema: tuple) -> bool:
+    _, _, children = schema
+    _require_min_children("and", children, 1)
+    return all(validate(c, v) for c in children)
+
+
+def _e_and(v: Any, schema: tuple, path: list, in_: list) -> list:
+    _, _, children = schema
+    _require_min_children("and", children, 1)
+    errs = []
+    for i, c in enumerate(children):
+        errs.extend(_explain_impl(c, v, path + [i], in_))
+    return errs
+
+
+def _v_or(v: Any, schema: tuple) -> bool:
+    _, _, children = schema
+    _require_min_children("or", children, 1)
+    return any(validate(c, v) for c in children)
+
+
+def _e_or(v: Any, schema: tuple, path: list, in_: list) -> list:
+    _, _, children = schema
+    _require_min_children("or", children, 1)
+    all_errs = []
+    for i, c in enumerate(children):
+        e = _explain_impl(c, v, path + [i], in_)
+        if not e:
+            return []
+        all_errs.extend(e)
+    return all_errs
+
+
+def _v_enum(v: Any, schema: tuple) -> bool:
+    _, _, children = schema
+    _require_min_children("enum", children, 1)
+    return v in children
+
+
+def _e_enum(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    _require_min_children("enum", children, 1)
+    if v in children:
+        return []
+    original = [name] + ([props] if props else []) + list(children)
+    return [{"path": path, "in": in_, "schema": original, "value": v}]
+
+
+def _v_maybe(v: Any, schema: tuple) -> bool:
+    _, _, children = schema
+    _require_exact_children("maybe", children, 1)
+    return v is None or validate(children[0], v)
+
+
+def _e_maybe(v: Any, schema: tuple, path: list, in_: list) -> list:
+    _, _, children = schema
+    _require_exact_children("maybe", children, 1)
+    if v is None:
+        return []
+    return _explain_impl(children[0], v, path + [0], in_)
+
+
+def _v_not(v: Any, schema: tuple) -> bool:
+    _, _, children = schema
+    _require_exact_children("not", children, 1)
+    return not validate(children[0], v)
+
+
+def _e_not(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    _require_exact_children("not", children, 1)
+    if not validate(children[0], v):
+        return []
+    original = [name] + ([props] if props else []) + list(children)
+    return [{"path": path, "in": in_, "schema": original, "value": v}]
+
+
+register_composite("and", _v_and, _e_and)
+register_composite("or", _v_or, _e_or)
+register_composite("enum", _v_enum, _e_enum)
+register_composite("maybe", _v_maybe, _e_maybe)
+register_composite("not", _v_not, _e_not)
