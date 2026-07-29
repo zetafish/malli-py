@@ -36,6 +36,20 @@ def validate(schema: Any, value: Any) -> bool:
     return fn(value, arg)
 
 
+def explain(schema: Any, value: Any) -> dict | None:
+    name, arg = _parse_schema(schema)
+    fn = _REGISTRY.get(name)
+    if fn is None:
+        raise UnknownSchemaError(name)
+    if fn(value, arg):
+        return None
+    return {
+        "value": value,
+        "schema": schema,
+        "errors": [{"path": [], "in": [], "schema": schema, "value": value}],
+    }
+
+
 def _check_bounds(v: float | int, props: dict) -> bool:
     if not isinstance(props, dict):
         return True

@@ -1,3 +1,3 @@
-from .core import UnknownSchemaError, register, validate
+from .core import UnknownSchemaError, explain, register, validate
 
-__all__ = ["validate", "register", "UnknownSchemaError"]
+__all__ = ["validate", "explain", "register", "UnknownSchemaError"]
