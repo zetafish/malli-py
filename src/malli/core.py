@@ -391,3 +391,81 @@ register_composite("sequential", _v_sequential, _e_sequential)
 register_composite("set", _v_set, _e_set)
 register_composite("tuple", _v_tuple, _e_tuple)
 register_composite("map-of", _v_map_of, _e_map_of)
+
+
+def _parse_map_entries(children: list) -> list[tuple[str, dict, Any]]:
+    entries = []
+    seen: set[str] = set()
+    for entry in children:
+        if not isinstance(entry, (list, tuple)) or len(entry) not in (2, 3):
+            raise TypeError(f"invalid :map entry: {entry!r} (expected [key, schema] or [key, props, schema])")
+        if len(entry) == 2:
+            key, sch = entry
+            props: dict = {}
+        else:
+            key, props, sch = entry
+            if not isinstance(props, dict):
+                raise TypeError(f"invalid :map entry props: {props!r} (expected dict)")
+        if not isinstance(key, str):
+            raise TypeError(f"invalid :map entry key: {key!r} (must be str)")
+        if key in seen:
+            raise TypeError(f"duplicate :map entry key: {key!r}")
+        seen.add(key)
+        entries.append((key, props, sch))
+    return entries
+
+
+def _v_map(v: Any, schema: tuple) -> bool:
+    _, props, children = schema
+    if not isinstance(v, dict):
+        return False
+    entries = _parse_map_entries(children)
+    known: set[str] = set()
+    for key, entry_props, sch in entries:
+        known.add(key)
+        if key in v:
+            if not validate(sch, v[key]):
+                return False
+        elif not entry_props.get("optional"):
+            return False
+    if props.get("closed"):
+        for k in v:
+            if k not in known:
+                return False
+    return True
+
+
+def _e_map(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    if not isinstance(v, dict):
+        return [_collection_error(name, props, children, path, in_, v)]
+    entries = _parse_map_entries(children)
+    known: set[str] = set()
+    errs = []
+    for key, entry_props, sch in entries:
+        known.add(key)
+        if key in v:
+            errs.extend(_explain_impl(sch, v[key], path + [key], in_ + [key]))
+        elif not entry_props.get("optional"):
+            errs.append({
+                "path": path + [key],
+                "in": in_ + [key],
+                "schema": sch,
+                "value": None,
+                "type": "missing-key",
+            })
+    if props.get("closed"):
+        map_schema = _reconstruct(name, props, children)
+        for k, val in v.items():
+            if k not in known:
+                errs.append({
+                    "path": path + [k],
+                    "in": in_ + [k],
+                    "schema": map_schema,
+                    "value": val,
+                    "type": "extra-key",
+                })
+    return errs
+
+
+register_composite("map", _v_map, _e_map)
