@@ -34,6 +34,27 @@ uv run basedpyright
 grep -qE "^## [0-9]" CHANGELOG.md || { echo "CHANGELOG.md missing version section"; exit 1; }
 """
 
+[tasks.release]
+description = "Cut a release: commit staged changes, tag vX.Y.Z, push. Usage: mise run release X.Y.Z"
+usage = '''
+arg "<version>" help="Semver version like 0.2.0 (no v prefix)"
+'''
+run = """
+set -e
+TAG="v${usage_version}"
+if git rev-parse "$TAG" >/dev/null 2>&1; then
+  echo "tag $TAG already exists"; exit 1
+fi
+grep -qE "^## ${usage_version//./\\.}( |$)" CHANGELOG.md || {
+  echo "CHANGELOG.md has no '## ${usage_version}' section"; exit 1
+}
+mise run release-check
+git commit -am "Release ${usage_version}" || echo "nothing to commit"
+git tag "$TAG"
+#git push && git push --tags
+echo "released $TAG"
+"""
+
 [tasks.clean]
 description = "Remove build artifacts, caches, and venv"
 run = """

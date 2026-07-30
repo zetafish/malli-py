@@ -183,12 +183,9 @@ Regex uses `@lru_cache(maxsize=256)` on `_compile`.
 
 ## Releasing
 
-1. Update `CHANGELOG.md`: move items from `## [Unreleased]` into a new `## [X.Y.Z] - YYYY-MM-DD` section. Update the link refs at the bottom.
-2. `mise run release-check` — runs tests, typecheck, and sanity-checks the changelog.
-3. Commit: `git commit -am "Release X.Y.Z"`.
-4. Tag: `git tag vX.Y.Z` (the `v` prefix is what `hatch-vcs` expects).
-5. Push: `git push && git push --tags`.
-6. (Optional) `mise run build` produces sdist + wheel in `dist/` using the tag as the version. Not published anywhere yet.
+1. Update `CHANGELOG.md`: move items from `## Unreleased` into a new `## X.Y.Z - YYYY-MM-DD` section.
+2. `mise run release X.Y.Z` — checks the tag doesn't exist, verifies the changelog has a matching section, runs `release-check` (tests + typecheck), commits any staged changes with `Release X.Y.Z`, tags `vX.Y.Z`, pushes.
+3. (Optional) `mise run build` — sdist + wheel into `dist/` using the tag as the version. Not published anywhere yet.
 
 `mise run version` prints what `hatch-vcs` currently infers — useful for a dry run.
 
