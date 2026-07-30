@@ -469,3 +469,40 @@ def _e_map(v: Any, schema: tuple, path: list, in_: list) -> list:
 
 
 register_composite("map", _v_map, _e_map)
+
+
+def _resolve_merge(children: list) -> tuple[str, dict, list]:
+    _require_min_children("merge", children, 1)
+    props: dict = {}
+    by_key: dict[str, tuple[dict, Any]] = {}
+    order: list[str] = []
+    for child in children:
+        name, cprops, centries = _parse_schema(child)
+        if name != "map":
+            raise TypeError(f":merge children must be :map schemas, got {name!r}")
+        props = {**props, **cprops}
+        for key, entry_props, sch in _parse_map_entries(centries):
+            if key not in by_key:
+                order.append(key)
+            by_key[key] = (entry_props, sch)
+    merged_entries = [
+        ([key, entry_props, sch] if entry_props else [key, sch])
+        for key in order
+        for entry_props, sch in [by_key[key]]
+    ]
+    return "map", props, merged_entries
+
+
+def _v_merge(v: Any, schema: tuple) -> bool:
+    _, _, children = schema
+    name, props, entries = _resolve_merge(children)
+    return _v_map(v, (name, props, entries))
+
+
+def _e_merge(v: Any, schema: tuple, path: list, in_: list) -> list:
+    _, _, children = schema
+    name, props, entries = _resolve_merge(children)
+    return _e_map(v, (name, props, entries), path, in_)
+
+
+register_composite("merge", _v_merge, _e_merge)

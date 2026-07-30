@@ -85,6 +85,23 @@ Closed = ["map", {"closed": True}, ["name", "string"]]
 m.validate(Closed, {"name": "Ada", "x": 1})                     # False
 ```
 
+### `merge` — compose map schemas
+
+Combine two or more `:map` schemas into one. Later entries override earlier ones by key (schema and per-entry props both replace); top-level map props (like `closed`) shallow-merge with last-value-wins.
+
+```python
+Base = ["map", ["id", "int"], ["name", "string"]]
+Contact = ["map", ["email", "string"]]
+
+User = ["merge", Base, Contact]
+m.validate(User, {"id": 1, "name": "Ada", "email": "a@b.com"})  # True
+
+# Later entries override:
+Widened = ["merge",
+           ["map", ["id", "int"]],
+           ["map", ["id", "string"]]]     # id is now a string
+```
+
 ### `explain`
 
 Structured errors, with `path` (into schema) and `in` (into value):

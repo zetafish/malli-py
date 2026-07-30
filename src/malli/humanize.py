@@ -123,6 +123,7 @@ _MESSAGES = {
     "tuple": _msg_tuple,
     "map": _msg_map,
     "map-of": _msg_map_of,
+    "merge": _msg_map,
 }
 
 
