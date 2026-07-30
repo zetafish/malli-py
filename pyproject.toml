@@ -1,16 +1,26 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "malli"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A Python port of Clojure's malli — data-driven schemas and validation"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Endy Kasanardjo" }]
+authors = [{ name = "Endymion Kasanardjo" }]
 dependencies = []
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/malli/_version.py"
+
+[tool.hatch.version.raw-options]
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/malli"]
@@ -25,6 +35,7 @@ extend-select = ["I"]
 dev = [
     "pytest>=8.0",
     "basedpyright>=1.39.9",
+    "hatch>=1.12",
 ]
 
 [tool.ruff]

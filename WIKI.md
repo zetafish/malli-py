@@ -179,6 +179,18 @@ Regex uses `@lru_cache(maxsize=256)` on `_compile`.
 - Run tests with `uv run pytest` or `mise run test`.
 - User's global CLAUDE.md mentions `clj-nrepl-eval` and `clj-paren-repair` — those are for Clojure work, not this repo. Ignore for malli-py.
 - **Pre-commit hooks** (`.pre-commit-config.yaml`): trailing-whitespace/EOF/YAML/TOML hygiene, ruff (with `--fix`) + ruff-format, basedpyright. Pytest runs on `pre-push` only (keeps commits fast). Install with `pre-commit install && pre-commit install --hook-type pre-push`.
+- **Versioning** via `hatch-vcs` — the version is derived from the latest `vX.Y.Z` git tag, written into `src/malli/_version.py` at build time, and re-exported as `malli.__version__`. `_version.py` is gitignored. `pyproject.toml` uses `dynamic = ["version"]` (no manual `version = "..."` line). Between tags, dev builds get a PEP 440 suffix like `0.1.1.dev3+g<sha>`; `local_scheme = "no-local-version"` strips the `+g<sha>` bit so PyPI accepts uploads.
+
+## Releasing
+
+1. Update `CHANGELOG.md`: move items from `## [Unreleased]` into a new `## [X.Y.Z] - YYYY-MM-DD` section. Update the link refs at the bottom.
+2. `mise run release-check` — runs tests, typecheck, and sanity-checks the changelog.
+3. Commit: `git commit -am "Release X.Y.Z"`.
+4. Tag: `git tag vX.Y.Z` (the `v` prefix is what `hatch-vcs` expects).
+5. Push: `git push && git push --tags`.
+6. (Optional) `mise run build` produces sdist + wheel in `dist/` using the tag as the version. Not published anywhere yet.
+
+`mise run version` prints what `hatch-vcs` currently infers — useful for a dry run.
 
 ## What's next (unbuilt)
 

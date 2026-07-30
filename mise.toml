@@ -18,6 +18,22 @@ run = "uv run python"
 description = "Run basedpyright"
 run = "uv run basedpyright"
 
+[tasks.version]
+description = "Print the version hatch-vcs will infer from git"
+run = "uv run hatch version"
+
+[tasks.build]
+description = "Build sdist + wheel into dist/"
+run = "uv run hatch build"
+
+[tasks.release-check]
+description = "Pre-release sanity: tests, typecheck, changelog has an unreleased-or-current entry"
+run = """
+uv run pytest -q
+uv run basedpyright
+grep -qE "^## [0-9]" CHANGELOG.md || { echo "CHANGELOG.md missing version section"; exit 1; }
+"""
+
 [tasks.clean]
 description = "Remove build artifacts, caches, and venv"
 run = """
