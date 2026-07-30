@@ -51,7 +51,7 @@ grep -qE "^## ${usage_version//./\\.}( |$)" CHANGELOG.md || {
 mise run release-check
 git commit -am "Release ${usage_version}" || echo "nothing to commit"
 git tag "$TAG"
-#git push && git push --tags
+git push && git push --tags
 echo "released $TAG"
 """
 
