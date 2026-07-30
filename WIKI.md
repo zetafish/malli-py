@@ -178,6 +178,7 @@ Regex uses `@lru_cache(maxsize=256)` on `_compile`.
 - `uv.lock` is committed to git — reproducible installs across machines.
 - Run tests with `uv run pytest` or `mise run test`.
 - User's global CLAUDE.md mentions `clj-nrepl-eval` and `clj-paren-repair` — those are for Clojure work, not this repo. Ignore for malli-py.
+- **Pre-commit hooks** (`.pre-commit-config.yaml`): trailing-whitespace/EOF/YAML/TOML hygiene, ruff (with `--fix`) + ruff-format, basedpyright. Pytest runs on `pre-push` only (keeps commits fast). Install with `pre-commit install && pre-commit install --hook-type pre-push`.
 
 ## What's next (unbuilt)
 
