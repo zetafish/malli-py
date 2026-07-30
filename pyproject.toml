@@ -12,9 +12,6 @@ license = { text = "MIT" }
 authors = [{ name = "Endy Kasanardjo" }]
 dependencies = []
 
-[project.optional-dependencies]
-dev = ["pytest>=8.0"]
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/malli"]
 
@@ -22,10 +19,11 @@ packages = ["src/malli"]
 testpaths = ["tests"]
 
 [tool.ruff.lint]
-extend-select = ["I"]   # if not already selected
+extend-select = ["I"]
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
     "basedpyright>=1.39.9",
 ]
 
@@ -35,4 +33,5 @@ fix = true
 [tool.basedpyright]
 reportAny = false
 reportExplicitAny = false
-typeCheckingMode = "standard"   # instead of "recommended" or "all"
+typeCheckingMode = "standard"
+exclude = ["tests", ".venv", "build", "dist"]

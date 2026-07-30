@@ -14,20 +14,16 @@ m.validate(["vector", "string"], ["a"])     # True
 
 ## Install
 
-```bash
-pip install -e ".[dev]"
-```
-
-Or with [mise](https://mise.jdx.dev/):
+Uses [uv](https://docs.astral.sh/uv/) + [mise](https://mise.jdx.dev/). `mise` pins the Python version and installs uv; uv manages the venv and dependencies.
 
 ```bash
-mise run install
+mise run install     # or: uv sync
 ```
 
 ## Test
 
 ```bash
-mise run test        # or: pytest
+mise run test        # or: uv run pytest
 ```
 
 ## Features

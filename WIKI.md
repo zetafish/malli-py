@@ -172,9 +172,11 @@ Regex uses `@lru_cache(maxsize=256)` on `_compile`.
 
 ## Tooling
 
-- **`mise`** for Python version + `.venv` + tasks. Run `mise trust` in project dir first.
-- **Known issue**: mise sometimes creates `.venv` without pip. Fix: `.venv/bin/python -m ensurepip --upgrade` or recreate with stdlib `python -m venv .venv`.
-- Tests use `.venv/bin/pytest` directly (safer than bare `pytest` given the pip-in-venv issue).
+- **`mise`** pins the Python version and installs uv. Task runner (`mise run install/test/repl/typecheck/clean`). Run `mise trust` in project dir first.
+- **`uv`** owns the venv (`.venv`), dependency resolution (`uv.lock`), and command execution (`uv run ...`). Replaced the prior pip-based workflow.
+- Dev deps live in `[dependency-groups.dev]` (uv convention), not `[project.optional-dependencies]`.
+- `uv.lock` is committed to git — reproducible installs across machines.
+- Run tests with `uv run pytest` or `mise run test`.
 - User's global CLAUDE.md mentions `clj-nrepl-eval` and `clj-paren-repair` — those are for Clojure work, not this repo. Ignore for malli-py.
 
 ## What's next (unbuilt)

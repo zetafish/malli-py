@@ -1,25 +1,27 @@
 [tools]
 python = "3.12"
-
-[env]
-_.python.venv = { path = ".venv", create = true }
+uv = "latest"
 
 [tasks.install]
-description = "Install package in editable mode with dev deps"
-run = "pip install -e '.[dev]'"
+description = "Install project + dev deps via uv"
+run = "uv sync"
 
 [tasks.test]
 description = "Run tests"
-run = "pytest"
+run = "uv run pytest"
 
 [tasks.repl]
 description = "Start a Python REPL with the package importable"
-run = "python"
+run = "uv run python"
+
+[tasks.typecheck]
+description = "Run basedpyright"
+run = "uv run basedpyright"
 
 [tasks.clean]
-description = "Remove build artifacts and caches"
+description = "Remove build artifacts, caches, and venv"
 run = """
-rm -rf build dist *.egg-info src/*.egg-info
+rm -rf .venv build dist *.egg-info src/*.egg-info
 find . -type d -name __pycache__ -exec rm -rf {} +
 find . -type d -name .pytest_cache -exec rm -rf {} +
 """
