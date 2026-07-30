@@ -102,6 +102,23 @@ Widened = ["merge",
            ["map", ["id", "string"]]]     # id is now a string
 ```
 
+### `multi` — dispatch by discriminator
+
+Pick a branch schema by looking up a key in the value (tagged unions):
+
+```python
+Shape = ["multi", {"dispatch": "type"},
+         ["circle", ["map", ["type", "string"], ["radius", "int"]]],
+         ["square", ["map", ["type", "string"], ["side", "int"]]]]
+
+m.validate(Shape, {"type": "circle", "radius": 5})   # True
+m.validate(Shape, {"type": "square", "side": 3})     # True
+m.validate(Shape, {"type": "triangle"})              # False (unknown dispatch)
+m.validate(Shape, {"radius": 5})                     # False (missing dispatch key)
+```
+
+Errors are tagged `type: "missing-dispatch"` or `type: "invalid-dispatch"` so `humanize` can render them cleanly.
+
 ### `explain`
 
 Structured errors, with `path` (into schema) and `in` (into value):

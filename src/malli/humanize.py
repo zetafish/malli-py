@@ -124,6 +124,7 @@ _MESSAGES = {
     "map": _msg_map,
     "map-of": _msg_map_of,
     "merge": _msg_map,
+    "multi": _msg_map,
 }
 
 
@@ -133,6 +134,10 @@ def _message(error: dict) -> str:
         return "missing required key"
     if tag == "extra-key":
         return "should not be present"
+    if tag == "missing-dispatch":
+        return "missing dispatch key"
+    if tag == "invalid-dispatch":
+        return f"unknown dispatch value {error.get('value')!r}"
     try:
         name, props, children = _parse_schema(error["schema"])
     except TypeError:

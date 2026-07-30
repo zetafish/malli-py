@@ -506,3 +506,63 @@ def _e_merge(v: Any, schema: tuple, path: list, in_: list) -> list:
 
 
 register_composite("merge", _v_merge, _e_merge)
+
+
+def _parse_multi(props: dict, children: list) -> tuple[str, dict[Any, Any]]:
+    if not isinstance(props, dict) or "dispatch" not in props:
+        raise TypeError(":multi requires a props dict with a 'dispatch' key")
+    dispatch = props["dispatch"]
+    if not isinstance(dispatch, str):
+        raise TypeError(f":multi dispatch key must be a string, got {dispatch!r}")
+    _require_min_children("multi", children, 1)
+    branches: dict[Any, Any] = {}
+    for entry in children:
+        if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+            raise TypeError(f"invalid :multi branch: {entry!r} (expected [value, schema])")
+        val, sch = entry
+        if val in branches:
+            raise TypeError(f"duplicate :multi branch value: {val!r}")
+        branches[val] = sch
+    return dispatch, branches
+
+
+def _v_multi(v: Any, schema: tuple) -> bool:
+    _, props, children = schema
+    dispatch, branches = _parse_multi(props, children)
+    if not isinstance(v, dict):
+        return False
+    if dispatch not in v:
+        return False
+    sch = branches.get(v[dispatch])
+    if sch is None:
+        return False
+    return validate(sch, v)
+
+
+def _e_multi(v: Any, schema: tuple, path: list, in_: list) -> list:
+    name, props, children = schema
+    dispatch, branches = _parse_multi(props, children)
+    if not isinstance(v, dict):
+        return [_collection_error(name, props, children, path, in_, v)]
+    if dispatch not in v:
+        return [{
+            "path": path + [dispatch],
+            "in": in_ + [dispatch],
+            "schema": _reconstruct(name, props, children),
+            "value": None,
+            "type": "missing-dispatch",
+        }]
+    dv = v[dispatch]
+    sch = branches.get(dv)
+    if sch is None:
+        return [{
+            "path": path + [dispatch],
+            "in": in_ + [dispatch],
+            "schema": _reconstruct(name, props, children),
+            "value": dv,
+            "type": "invalid-dispatch",
+        }]
+    return _explain_impl(sch, v, path, in_)
+
+
+register_composite("multi", _v_multi, _e_multi)

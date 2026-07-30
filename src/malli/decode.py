@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid as _uuid
 from typing import Any, Callable
 
-from .core import _parse_schema, _parse_map_entries, _resolve_merge, validate
+from .core import _parse_multi, _parse_schema, _parse_map_entries, _resolve_merge, validate
 
 Decoder = Callable[[Any, dict, list], Any]
 Transformer = dict[str, Decoder]
@@ -163,6 +163,14 @@ def decode(schema: Any, value: Any, transformer: Transformer) -> Any:
     if name == "merge":
         resolved_name, resolved_props, resolved_entries = _resolve_merge(children)
         return _decode_collection(resolved_name, resolved_props, resolved_entries, value, transformer)
+    if name == "multi":
+        dispatch, branches = _parse_multi(props, children)
+        if not isinstance(value, dict) or dispatch not in value:
+            return value
+        sch = branches.get(value[dispatch])
+        if sch is None:
+            return value
+        return decode(sch, value, transformer)
 
     if name in _COLLECTION_NAMES:
         value = _decode_collection(name, props, children, value, transformer)
