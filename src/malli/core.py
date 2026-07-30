@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import re as _re
 import uuid as _uuid
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any
 
 SimpleValidator = Callable[[Any, Any], bool]
 CompositeValidator = Callable[[Any, tuple], bool]
@@ -76,7 +77,7 @@ def explain(schema: Any, value: Any) -> dict | None:
     return {"value": value, "schema": schema, "errors": errors}
 
 
-def _check_bounds(v: float | int, props: dict) -> bool:
+def _check_bounds(v: float, props: dict) -> bool:
     if not isinstance(props, dict):
         return True
     lo = props.get("min")
